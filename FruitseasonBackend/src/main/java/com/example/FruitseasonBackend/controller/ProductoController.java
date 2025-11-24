@@ -14,6 +14,13 @@ public class ProductoController {
     @Autowired
     private ProductoRepository repo;
 
+    /*
+     * ProductoController
+     *
+     * Endpoint de prueba para verificar la conexión con la base de datos.
+     * - GET /productos/test: crea un producto de prueba y lo persiste.
+     */
+
     @GetMapping("/test")
     public String test() {
         Producto p = new Producto();

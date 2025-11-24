@@ -13,3 +13,4 @@ public class HomeController {
         return "API up — rutas: /productos/test, /auth/register, /auth/login, /comments";
     }
 }
+

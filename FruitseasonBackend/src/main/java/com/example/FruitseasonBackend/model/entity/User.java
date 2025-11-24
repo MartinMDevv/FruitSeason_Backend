@@ -5,6 +5,20 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 
+/**
+ * User entity
+ *
+ * Se usa para persistir usuarios en la base de datos. Contiene:
+ * - id: clave primaria
+ * - username: nombre de usuario único
+ * - email: correo electrónico único
+ * - password: contraseña encriptada (BCrypt)
+ * - subscription: plan de suscripción del usuario (enum SubscriptionPlan)
+ *
+ * Notas:
+ * - La contraseña debe guardarse siempre en formato hash.
+ * - El campo subscription se inicializa con `BASIC` si no se especifica.
+ */
 @Entity
 public class User {
     @Id
@@ -15,12 +29,23 @@ public class User {
     private String email;
     private String password;
 
+    // Suscripción del usuario (por defecto: NO_SUBSCRIBED)
+    private SubscriptionPlan subscription = SubscriptionPlan.NO_SUBSCRIBED;
+
     public User() {}
 
     public User(String username, String email, String password) {
         this.username = username;
         this.email = email;
         this.password = password;
+        this.subscription = SubscriptionPlan.NO_SUBSCRIBED;
+    }
+
+    public User(String username, String email, String password, SubscriptionPlan subscription) {
+        this.username = username;
+        this.email = email;
+        this.password = password;
+        this.subscription = subscription == null ? SubscriptionPlan.BASIC : subscription;
     }
 
     public Long getId() {
@@ -53,5 +78,13 @@ public class User {
 
     public void setPassword(String password) {
         this.password = password;
+    }
+
+    public SubscriptionPlan getSubscription() {
+        return subscription;
+    }
+
+    public void setSubscription(SubscriptionPlan subscription) {
+        this.subscription = subscription;
     }
 }

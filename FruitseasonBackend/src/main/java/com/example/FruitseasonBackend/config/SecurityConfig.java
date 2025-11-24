@@ -25,4 +25,12 @@ public class SecurityConfig {
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
+
+    /*
+     * Security configuration notes
+     *
+     * - CSRF disabled for simplicity in development (not recommended for production).
+     * - All requests are permitted for now to simplify testing endpoints.
+     * - A `PasswordEncoder` bean is provided (BCrypt) and puede usarse por `UserService`.
+     */
 }
