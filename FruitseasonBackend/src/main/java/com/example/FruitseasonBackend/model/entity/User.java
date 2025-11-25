@@ -1,53 +1,66 @@
 package com.example.FruitseasonBackend.model.entity;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
+import jakarta.persistence.*;
+import org.hibernate.annotations.CreationTimestamp;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
- * User entity
- *
- * Se usa para persistir usuarios en la base de datos. Contiene:
- * - id: clave primaria
- * - username: nombre de usuario único
- * - email: correo electrónico único
- * - password: contraseña encriptada (BCrypt)
- * - subscription: plan de suscripción del usuario (enum SubscriptionPlan)
- *
- * Notas:
- * - La contraseña debe guardarse siempre en formato hash.
- * - El campo subscription se inicializa con `BASIC` si no se especifica.
+ * User - Entidad de usuario
+ * 
+ * Responsabilidades:
+ * - Almacenar credenciales (username, email, password hasheado)
+ * - Gestionar suscripción única del usuario
+ * - Relación con métodos de pago
+ * 
+ * Flujo:
+ * 1. Usuario se registra (NO_SUBSCRIBED por defecto)
+ * 2. Usuario hace login (recibe JWT)
+ * 3. Usuario compra suscripción (BASIC/FAMILY/PREMIUM)
  */
 @Entity
+@Table(name = "users")
 public class User {
+    
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(unique = true, nullable = false, length = 50)
     private String username;
-    private String email;
-    private String password;
 
-    // Suscripción del usuario (por defecto: NO_SUBSCRIBED)
+    @Column(unique = true, nullable = false, length = 100)
+    private String email;
+
+    @Column(nullable = false)
+    private String password; // BCrypt hash
+
+    @Column(nullable = false, length = 20)
+    private String role = "ROLE_USER";
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
     private SubscriptionPlan subscription = SubscriptionPlan.NO_SUBSCRIBED;
 
+    @CreationTimestamp
+    @Column(nullable = false, updatable = false)
+    private LocalDateTime createdAt;
+
+    // Relación con métodos de pago (un usuario puede tener múltiples tarjetas guardadas)
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<PaymentMethod> paymentMethods = new ArrayList<>();
+
+    // Constructores
     public User() {}
 
     public User(String username, String email, String password) {
         this.username = username;
         this.email = email;
         this.password = password;
-        this.subscription = SubscriptionPlan.NO_SUBSCRIBED;
     }
 
-    public User(String username, String email, String password, SubscriptionPlan subscription) {
-        this.username = username;
-        this.email = email;
-        this.password = password;
-        this.subscription = subscription == null ? SubscriptionPlan.BASIC : subscription;
-    }
-
+    // Getters y Setters
     public Long getId() {
         return id;
     }
@@ -80,11 +93,46 @@ public class User {
         this.password = password;
     }
 
+    public String getRole() {
+        return role;
+    }
+
+    public void setRole(String role) {
+        this.role = role;
+    }
+
     public SubscriptionPlan getSubscription() {
         return subscription;
     }
 
     public void setSubscription(SubscriptionPlan subscription) {
         this.subscription = subscription;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public List<PaymentMethod> getPaymentMethods() {
+        return paymentMethods;
+    }
+
+    public void setPaymentMethods(List<PaymentMethod> paymentMethods) {
+        this.paymentMethods = paymentMethods;
+    }
+
+    // Métodos de utilidad
+    public void addPaymentMethod(PaymentMethod paymentMethod) {
+        paymentMethods.add(paymentMethod);
+        paymentMethod.setUser(this);
+    }
+
+    public void removePaymentMethod(PaymentMethod paymentMethod) {
+        paymentMethods.remove(paymentMethod);
+        paymentMethod.setUser(null);
     }
 }

@@ -1,96 +1,175 @@
 package com.example.FruitseasonBackend.service;
 
+import com.example.FruitseasonBackend.model.entity.PaymentMethod;
+import com.example.FruitseasonBackend.model.entity.SubscriptionPlan;
 import com.example.FruitseasonBackend.model.entity.User;
+import com.example.FruitseasonBackend.repository.PaymentMethodRepository;
 import com.example.FruitseasonBackend.repository.UserRepository;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Optional;
-
+/**
+ * UserService - Lógica de negocio para usuarios
+ * 
+ * Responsabilidades:
+ * - Registro de usuarios con validación y hash de contraseña
+ * - Compra/actualización de suscripciones
+ * - Validación de tarjetas con algoritmo de Luhn
+ * - Almacenamiento seguro de métodos de pago (solo últimos 4 dígitos)
+ */
 @Service
+@Transactional
 public class UserService {
 
-    /*
-     * UserService
-     *
-     * Servicio que implementa la lógica de negocio para usuarios:
-     * - register(...) : valida y crea usuarios (hash de contraseña, asigna plan)
-     * - login(...)    : verifica credenciales comparando hashes
-     *
-     * Depende de `UserRepository` y de un `PasswordEncoder` (BCrypt).
-     */
+    private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final PaymentMethodRepository paymentMethodRepository;
 
-    @Autowired
-    private UserRepository userRepository;
-
-    @Autowired
-    private PasswordEncoder passwordEncoder;
-
-    /**
-     * Registrar un usuario.
-     *
-     * La lógica de suscripción está centralizada en la entidad `User` y
-     * no se asignan planes desde el registro. Al crear un usuario, su
-     * `subscription` será por defecto `NO_SUBSCRIBED`.
-     *
-     * @param username nombre de usuario (requerido)
-     * @param email correo (requerido)
-     * @param rawPassword contraseña en texto plano (requerido)
-     * @return usuario creado persistido
-     */
-    public User register(String username, String email, String rawPassword) {
-        if (username == null || username.isBlank()) throw new IllegalArgumentException("username required");
-        if (email == null || email.isBlank()) throw new IllegalArgumentException("email required");
-        if (rawPassword == null || rawPassword.isBlank()) throw new IllegalArgumentException("password required");
-
-        Optional<User> byUser = userRepository.findByUsername(username);
-        if (byUser.isPresent()) throw new IllegalArgumentException("username already exists");
-
-        Optional<User> byEmail = userRepository.findByEmail(email);
-        if (byEmail.isPresent()) throw new IllegalArgumentException("email already exists");
-
-        String encoded = passwordEncoder.encode(rawPassword);
-        User u = new User(username, email, encoded);
-        return userRepository.save(u);
+    public UserService(UserRepository userRepository, 
+                      PasswordEncoder passwordEncoder,
+                      PaymentMethodRepository paymentMethodRepository) {
+        this.userRepository = userRepository;
+        this.passwordEncoder = passwordEncoder;
+        this.paymentMethodRepository = paymentMethodRepository;
     }
 
     /**
-     * Compra/actualiza la suscripción de un usuario.
-     *
-     * Requiere las credenciales (username + rawPassword) para confirmar la operación.
-     * @param username usuario
-     * @param rawPassword contraseña en texto plano para validar
-     * @param subscriptionPlanStr nombre del plan (NO_SUBSCRIBED, BASIC, FAMILY, PREMIUM)
-     * @return usuario con la suscripción actualizada
+     * Registra un nuevo usuario
+     * 
+     * @param username - Nombre de usuario único
+     * @param email - Email único
+     * @param rawPassword - Contraseña en texto plano (se hasheará con BCrypt)
+     * @return Usuario creado con suscripción NO_SUBSCRIBED
+     * @throws IllegalArgumentException si datos inválidos o usuario ya existe
      */
-    public User purchaseSubscription(String username, String rawPassword, String subscriptionPlanStr) {
-        if (username == null || rawPassword == null) throw new IllegalArgumentException("username and password required");
-
-        Optional<User> userOpt = userRepository.findByUsername(username);
-        if (userOpt.isEmpty()) throw new IllegalArgumentException("user not found");
-
-        User user = userOpt.get();
-        if (!passwordEncoder.matches(rawPassword, user.getPassword())) {
-            throw new IllegalArgumentException("invalid credentials");
+    public User register(String username, String email, String rawPassword) {
+        // Validaciones básicas
+        if (username == null || username.isBlank()) {
+            throw new IllegalArgumentException("El nombre de usuario es obligatorio");
+        }
+        if (email == null || email.isBlank()) {
+            throw new IllegalArgumentException("El email es obligatorio");
+        }
+        if (rawPassword == null || rawPassword.isBlank()) {
+            throw new IllegalArgumentException("La contraseña es obligatoria");
+        }
+        if (rawPassword.length() < 8) {
+            throw new IllegalArgumentException("La contraseña debe tener al menos 8 caracteres");
         }
 
-        com.example.FruitseasonBackend.model.entity.SubscriptionPlan plan;
+        // Verifica username único
+        if (userRepository.existsByUsername(username)) {
+            throw new IllegalArgumentException("El nombre de usuario ya está en uso");
+        }
+
+        // Verifica email único
+        if (userRepository.existsByEmail(email)) {
+            throw new IllegalArgumentException("El email ya está registrado");
+        }
+
+        // Hashea la contraseña con BCrypt
+        String hashedPassword = passwordEncoder.encode(rawPassword);
+        
+        // Crea el usuario con suscripción NO_SUBSCRIBED por defecto
+        User user = new User(username, email, hashedPassword);
+        return userRepository.save(user);
+    }
+
+    /**
+     * Compra o actualiza la suscripción de un usuario
+     * 
+     * IMPORTANTE: Este método valida y almacena datos de tarjeta de forma básica.
+     * En producción, usar servicios de pago como Stripe, PayPal, etc.
+     * 
+     * @param username - Usuario autenticado
+     * @param subscriptionPlanStr - Plan: NO_SUBSCRIBED, BASIC, FAMILY, PREMIUM
+     * @param cardHolderName - Nombre del titular de la tarjeta
+     * @param cardNumber - Número de tarjeta (se valida con Luhn, NO se almacena completo)
+     * @return Usuario con suscripción actualizada
+     * @throws IllegalArgumentException si datos inválidos
+     */
+    public User purchaseSubscription(String username, String subscriptionPlanStr, 
+                                    String cardHolderName, String cardNumber) {
+        // Validación de usuario
+        if (username == null || username.isBlank()) {
+            throw new IllegalArgumentException("Usuario requerido");
+        }
+
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado"));
+
+        // Validación de datos de tarjeta
+        if (cardHolderName == null || cardHolderName.isBlank()) {
+            throw new IllegalArgumentException("El nombre del titular es obligatorio");
+        }
+        if (cardNumber == null || cardNumber.isBlank()) {
+            throw new IllegalArgumentException("El número de tarjeta es obligatorio");
+        }
+
+        // Limpia y valida el número de tarjeta
+        String digits = cardNumber.replaceAll("\\D", "");
+        if (!isValidCardNumber(digits)) {
+            throw new IllegalArgumentException("Número de tarjeta inválido");
+        }
+
+        // Valida el plan de suscripción
+        SubscriptionPlan plan;
         try {
-            plan = com.example.FruitseasonBackend.model.entity.SubscriptionPlan.valueOf(subscriptionPlanStr.trim().toUpperCase());
+            plan = SubscriptionPlan.valueOf(subscriptionPlanStr.trim().toUpperCase());
         } catch (Exception ex) {
-            throw new IllegalArgumentException("invalid subscription plan");
+            throw new IllegalArgumentException("Plan de suscripción inválido. Opciones: NO_SUBSCRIBED, BASIC, FAMILY, PREMIUM");
         }
 
+        // Extrae últimos 4 dígitos y crea versión enmascarada
+        String last4 = digits.length() >= 4 ? digits.substring(digits.length() - 4) : digits;
+        String maskedNumber = "**** **** **** " + last4;
+
+        // Guarda el método de pago (solo datos enmascarados)
+        PaymentMethod paymentMethod = new PaymentMethod(cardHolderName, maskedNumber, last4, user);
+        paymentMethodRepository.save(paymentMethod);
+
+        // Actualiza la suscripción del usuario
         user.setSubscription(plan);
         return userRepository.save(user);
     }
 
-    public boolean login(String username, String rawPassword) {
-        if (username == null || rawPassword == null) return false;
-        Optional<User> userOpt = userRepository.findByUsername(username);
-        if (userOpt.isEmpty()) return false;
-        User user = userOpt.get();
-        return passwordEncoder.matches(rawPassword, user.getPassword());
+    /**
+     * Algoritmo de Luhn para validar números de tarjeta
+     * 
+     * Valida que el número de tarjeta sea matemáticamente válido
+     * (no verifica que la tarjeta exista o tenga fondos)
+     * 
+     * @param number - Número de tarjeta sin espacios ni guiones
+     * @return true si pasa la validación de Luhn
+     */
+    private boolean isValidCardNumber(String number) {
+        if (number == null || number.length() < 12 || number.length() > 19) {
+            return false;
+        }
+
+        int sum = 0;
+        boolean alternate = false;
+        
+        // Recorre de derecha a izquierda
+        for (int i = number.length() - 1; i >= 0; i--) {
+            int digit = Character.getNumericValue(number.charAt(i));
+            
+            if (digit < 0 || digit > 9) {
+                return false; // Carácter no numérico
+            }
+            
+            if (alternate) {
+                digit *= 2;
+                if (digit > 9) {
+                    digit = (digit % 10) + 1;
+                }
+            }
+            
+            sum += digit;
+            alternate = !alternate;
+        }
+        
+        return (sum % 10 == 0);
     }
 }

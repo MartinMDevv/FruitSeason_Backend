@@ -1,21 +1,34 @@
 package com.example.FruitseasonBackend.model.entity;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
+import jakarta.persistence.*;
+import org.hibernate.annotations.CreationTimestamp;
 import java.time.LocalDateTime;
 
+/**
+ * Entidad Comment - Testimonios/Opiniones de usuarios en el footer
+ * 
+ * Tabla: comment
+ * Propósito: Almacenar comentarios anónimos con email
+ */
 @Entity
+@Table(name = "comments")
 public class Comment {
+    
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(nullable = false, length = 100)
     private String email;
-    private String text;
-    private LocalDateTime createdAt = LocalDateTime.now();
 
+    @Column(nullable = false, length = 500)
+    private String text;
+
+    @CreationTimestamp
+    @Column(nullable = false, updatable = false)
+    private LocalDateTime createdAt;
+
+    // Constructores
     public Comment() {}
 
     public Comment(String email, String text) {
@@ -23,6 +36,7 @@ public class Comment {
         this.text = text;
     }
 
+    // Getters y Setters
     public Long getId() {
         return id;
     }
