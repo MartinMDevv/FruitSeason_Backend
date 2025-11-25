@@ -3,6 +3,12 @@ package com.example.FruitseasonBackend.controller;
 import com.example.FruitseasonBackend.dto.OrderResponseDTO;
 import com.example.FruitseasonBackend.model.entity.Order;
 import com.example.FruitseasonBackend.service.OrderService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.Parameter;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import org.springframework.http.HttpStatus;
@@ -25,6 +31,8 @@ import java.util.stream.Collectors;
  * - GET /orders/{orderNumber} - Obtener detalle de un pedido
  * - GET /orders/all - Obtener todos los pedidos (admin)
  */
+@Tag(name = "Pedidos", description = "Gestión de pedidos y checkout")
+@SecurityRequirement(name = "bearer-jwt")
 @RestController
 @RequestMapping("/orders")
 public class OrderController {
@@ -60,6 +68,12 @@ public class OrderController {
      * 5. Guarda método de pago
      * 6. Limpia el carrito
      */
+    @Operation(summary = "Crear pedido (Checkout)", description = "Crea un pedido a partir del carrito actual. Requiere que el carrito tenga un plan seleccionado y el número mínimo de frutas según el plan.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "201", description = "Ped ido creado exitosamente"),
+            @ApiResponse(responseCode = "400", description = "Carrito inválido o faltan datos"),
+            @ApiResponse(responseCode = "401", description = "No autenticado")
+    })
     @PostMapping("/checkout")
     public ResponseEntity<?> checkout(
             @Valid @RequestBody CheckoutRequest req,
@@ -94,6 +108,8 @@ public class OrderController {
      * GET /orders
      * Obtiene todos los pedidos del usuario autenticado
      */
+    @Operation(summary = "Obtener mis pedidos", description = "Retorna todos los pedidos del usuario autenticado ordenados por fecha")
+    @ApiResponse(responseCode = "200", description = "Lista de pedidos del usuario")
     @GetMapping
     public ResponseEntity<?> getUserOrders(Principal principal) {
         try {
@@ -118,9 +134,15 @@ public class OrderController {
      * GET /orders/{orderNumber}
      * Obtiene el detalle de un pedido específico
      */
+    @Operation(summary = "Obtener detalle de pedido", description = "Retorna los detalles completos de un pedido específico. Solo accesible para el dueño del pedido.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Detalle del pedido"),
+            @ApiResponse(responseCode = "403", description = "No tiene permisos para ver este pedido"),
+            @ApiResponse(responseCode = "404", description = "Pedido no encontrado")
+    })
     @GetMapping("/{orderNumber}")
     public ResponseEntity<?> getOrderByNumber(
-            @PathVariable String orderNumber,
+            @Parameter(description = "Número único del pedido (UUID)") @PathVariable String orderNumber,
             Principal principal) {
         try {
             Order order = orderService.getOrderByNumber(orderNumber);
@@ -147,6 +169,11 @@ public class OrderController {
      * Obtiene todos los pedidos del sistema (solo admin)
      * IMPORTANTE: Solo accesible para usuarios con rol ADMIN
      */
+    @Operation(summary = "Obtener TODOS los pedidos (ADMIN)", description = "Retorna todos los pedidos del sistema. SOLO accesible para usuarios con rol ADMIN.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Lista completa de pedidos"),
+            @ApiResponse(responseCode = "403", description = "Acceso denegado - requiere rol ADMIN")
+    })
     @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/all")
     public ResponseEntity<?> getAllOrders() {
