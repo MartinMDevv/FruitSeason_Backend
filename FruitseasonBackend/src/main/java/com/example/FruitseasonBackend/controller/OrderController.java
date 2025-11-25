@@ -1,11 +1,13 @@
 package com.example.FruitseasonBackend.controller;
 
+import com.example.FruitseasonBackend.dto.OrderResponseDTO;
 import com.example.FruitseasonBackend.model.entity.Order;
 import com.example.FruitseasonBackend.service.OrderService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.security.Principal;
@@ -98,8 +100,8 @@ public class OrderController {
             String username = principal.getName();
             List<Order> orders = orderService.getUserOrders(username);
 
-            List<Map<String, Object>> orderList = orders.stream()
-                    .map(this::orderToMap)
+            List<OrderResponseDTO> orderList = orders.stream()
+                    .map(OrderResponseDTO::fromOrder)
                     .collect(Collectors.toList());
 
             return ResponseEntity.ok(Map.of(
@@ -129,7 +131,7 @@ public class OrderController {
                         .body(new ErrorResponse("FORBIDDEN", "No tiene permisos para ver este pedido"));
             }
 
-            return ResponseEntity.ok(orderToMap(order));
+            return ResponseEntity.ok(OrderResponseDTO.fromOrder(order));
 
         } catch (IllegalArgumentException ex) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
@@ -143,15 +145,16 @@ public class OrderController {
     /**
      * GET /orders/all
      * Obtiene todos los pedidos del sistema (solo admin)
-     * Nota: Requeriría agregar validación de rol ADMIN
+     * IMPORTANTE: Solo accesible para usuarios con rol ADMIN
      */
+    @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/all")
     public ResponseEntity<?> getAllOrders() {
         try {
             List<Order> orders = orderService.getAllOrders();
 
-            List<Map<String, Object>> orderList = orders.stream()
-                    .map(this::orderToMap)
+            List<OrderResponseDTO> orderList = orders.stream()
+                    .map(OrderResponseDTO::fromOrder)
                     .collect(Collectors.toList());
 
             return ResponseEntity.ok(Map.of(
@@ -164,27 +167,4 @@ public class OrderController {
         }
     }
 
-    // ============= Helpers =============
-
-    /**
-     * Convierte un Order a Map para respuesta JSON
-     */
-    private Map<String, Object> orderToMap(Order order) {
-        return Map.of(
-                "id", order.getId(),
-                "orderNumber", order.getOrderNumber(),
-                "plan", order.getPlan().toString(),
-                "fruits", order.getFruitsAsList().stream()
-                        .map(fruit -> Map.of(
-                                "type", fruit.name(),
-                                "name", fruit.getDisplayName(),
-                                "category", fruit.getCategory()))
-                        .collect(Collectors.toList()),
-                "fruitsCount", order.getFruitsAsList().size(),
-                "cardHolderName", order.getCardHolderName(),
-                "cardLast4", order.getCardLast4(),
-                "orderDate", order.getOrderDate().format(DateTimeFormatter.ISO_DATE_TIME),
-                "status", order.getStatus(),
-                "username", order.getUser().getUsername());
-    }
 }

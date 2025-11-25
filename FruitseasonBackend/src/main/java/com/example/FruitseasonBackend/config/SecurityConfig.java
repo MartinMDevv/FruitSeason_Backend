@@ -4,6 +4,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -22,9 +23,11 @@ import java.util.Arrays;
  * Responsabilidades:
  * - Define qué endpoints son públicos y cuáles requieren autenticación
  * - Configura el filtro JWT para validar tokens en cada petición
- * - Proporciona beans para encriptación de contraseñas y gestión de autenticación
+ * - Proporciona beans para encriptación de contraseñas y gestión de
+ * autenticación
  */
 @Configuration
+@EnableMethodSecurity // Habilita @PreAuthorize, @Secured, etc.
 public class SecurityConfig {
 
     // Inyección por constructor (mejor práctica que @Autowired en campos)
@@ -43,31 +46,28 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-            // Deshabilita CSRF - Seguro para APIs REST stateless con JWT
-            // En APIs REST, cada petición lleva el token, no hay sesiones con cookies
-            .csrf(csrf -> csrf.disable())
-            
-            // Configura CORS para permitir peticiones desde el frontend
-            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-            
-            // Define políticas de autorización para endpoints
-            .authorizeHttpRequests(auth -> auth
-                // Endpoints públicos - NO requieren autenticación
-                .requestMatchers("/auth/login", "/auth/register", "/").permitAll()
-                
-                // Todos los demás endpoints requieren autenticación válida
-                .anyRequest().authenticated()
-            )
-            
-            // Política de sesión STATELESS - No crea sesiones HTTP
-            // JWT maneja el estado de autenticación
-            .sessionManagement(session -> 
-                session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
-            )
-            
-            // Añade el filtro JWT ANTES del filtro de autenticación estándar
-            // Esto permite validar el token antes de procesar la petición
-            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+                // Deshabilita CSRF - Seguro para APIs REST stateless con JWT
+                // En APIs REST, cada petición lleva el token, no hay sesiones con cookies
+                .csrf(csrf -> csrf.disable())
+
+                // Configura CORS para permitir peticiones desde el frontend
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+
+                // Define políticas de autorización para endpoints
+                .authorizeHttpRequests(auth -> auth
+                        // Endpoints públicos - NO requieren autenticación
+                        .requestMatchers("/auth/login", "/auth/register", "/").permitAll()
+
+                        // Todos los demás endpoints requieren autenticación válida
+                        .anyRequest().authenticated())
+
+                // Política de sesión STATELESS - No crea sesiones HTTP
+                // JWT maneja el estado de autenticación
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+
+                // Añade el filtro JWT ANTES del filtro de autenticación estándar
+                // Esto permite validar el token antes de procesar la petición
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
@@ -110,23 +110,23 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        
+
         // Orígenes permitidos - AJUSTA según tu frontend
         configuration.setAllowedOrigins(Arrays.asList(
-            "http://localhost:3000",  // React default
-            "http://localhost:4200",  // Angular default
-            "http://localhost:5173"   // Vite default
+                "http://localhost:3000", // React default
+                "http://localhost:4200", // Angular default
+                "http://localhost:5173" // Vite default
         ));
-        
+
         // Métodos HTTP permitidos
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        
+
         // Headers permitidos
         configuration.setAllowedHeaders(Arrays.asList("*"));
-        
+
         // Permite enviar credenciales (cookies, authorization headers)
         configuration.setAllowCredentials(true);
-        
+
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;
