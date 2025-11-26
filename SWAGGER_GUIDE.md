@@ -42,7 +42,7 @@ Cada endpoint muestra:
 ### Paso 1: Registrar un Usuario
 
 1. Click en **Autenticación** para expandir
-2. Click en **POST /auth/register**
+2. Click en **POST /api/auth/register**
 3. Click en **"Try it out"**
 4. Edita el JSON de ejemplo:
 
@@ -61,7 +61,7 @@ Cada endpoint muestra:
 
 ### Paso 2: Hacer Login y Obtener Token
 
-1. Click en **POST /auth/login**
+1. Click en **POST /api/auth/login**
 2. Click en **"Try it out"**
 3. Ingresa credenciales:
 
@@ -105,7 +105,7 @@ Cada endpoint muestra:
 ### Ejemplo: Comprar Suscripción BASIC
 
 #### 1. Seleccionar Plan
-- **Endpoint:** `POST /cart/select-plan`
+- **Endpoint:** `POST /api/cart/select-plan`
 - Click en **"Try it out"**
 - Request body:
 ```json
@@ -121,7 +121,7 @@ Cada endpoint muestra:
 #### 2. Agregar Frutas (4 mínimo para BASIC)
 
 **Fruta 1:**
-- **Endpoint:** `POST /cart/add-fruit`
+- **Endpoint:** `POST /api/cart/add-fruit`
 - Request body:
 ```json
 {
@@ -154,7 +154,7 @@ Cada endpoint muestra:
 ---
 
 #### 3. Ver Carrito Actual
-- **Endpoint:** `GET /cart`
+- **Endpoint:** `GET /api/cart`
 - Click en **"Try it out"**
 - Click en **"Execute"**
 - Verifica que tengas 4 frutas y plan BASIC
@@ -162,7 +162,7 @@ Cada endpoint muestra:
 ---
 
 #### 4. Realizar Checkout
-- **Endpoint:** `POST /orders/checkout`
+- **Endpoint:** `POST /api/orders/checkout`
 - Request body:
 ```json
 {
@@ -176,7 +176,7 @@ Cada endpoint muestra:
 ---
 
 #### 5. Ver Mis Pedidos
-- **Endpoint:** `GET /orders`
+- **Endpoint:** `GET /api/orders`
 - Click en **"Try it out"**
 - Click en **"Execute"**
 - Verás lista de todos tus pedidos
@@ -186,15 +186,15 @@ Cada endpoint muestra:
 ## 📌 Endpoints Importantes
 
 ### Endpoints Públicos (No requieren autenticación)
-- ✅ `POST /auth/register` - Registrar usuario
-- ✅ `POST /auth/login` - Iniciar sesión
-- ✅ `GET /cart/available-fruits` - Ver frutas disponibles (opcional)
+- ✅ `POST /api/auth/register` - Registrar usuario
+- ✅ `POST /api/auth/login` - Iniciar sesión
+- ✅ `GET /api/cart/available-fruits` - Ver frutas disponibles (opcional)
 
 ### Endpoints Protegidos (Requieren JWT)
 Todos los demás endpoints requieren que presiones "Authorize" primero.
 
 ### Endpoint Solo para ADMIN
-- ⚠️ `GET /orders/all` - Ver TODOS los pedidos del sistema
+- ⚠️ `GET /api/orders/all` - Ver TODOS los pedidos del sistema
   - Requiere rol `ROLE_ADMIN` en la base de datos
 
 ---
@@ -203,25 +203,25 @@ Todos los demás endpoints requieren que presiones "Authorize" primero.
 
 ### 1. Ver Frutas Disponibles
 ```
-GET /cart/available-fruits
+GET /api/cart/available-fruits
 ```
 Retorna todas las frutas que puedes agregar al carrito.
 
 ### 2. Limpiar Carrito
 ```
-DELETE /cart/clear
+DELETE /api/cart/clear
 ```
 Útil para empezar de nuevo.
 
 ### 3. Remover Fruta Específica
 ```
-DELETE /cart/remove-fruit/{fruit}
+DELETE /api/cart/remove-fruit
 ```
-Ejemplo: `/cart/remove-fruit/APPLE`
+Con request body: `{"fruit": "APPLE"}`
 
 ### 4. Ver Detalle de un Pedido
 ```
-GET /orders/{orderNumber}
+GET /api/orders/{orderNumber}
 ```
 Usa el `orderNumber` (UUID) de un pedido existente.
 
