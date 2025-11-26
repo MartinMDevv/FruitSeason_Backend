@@ -58,6 +58,9 @@ public class SecurityConfig {
                         // Endpoints públicos - NO requieren autenticación
                         .requestMatchers("/api/auth/login", "/api/auth/register", "/").permitAll()
 
+                        // ✅ AÑADIDO: Comentarios públicos (crear y listar)
+                        .requestMatchers("/api/comments", "/api/comments/**").permitAll()
+
                         // Swagger UI y OpenAPI docs - Acceso público para documentación
                         .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
 
