@@ -56,7 +56,7 @@ public class SecurityConfig {
                 // Define políticas de autorización para endpoints
                 .authorizeHttpRequests(auth -> auth
                         // Endpoints públicos - NO requieren autenticación
-                        .requestMatchers("/auth/login", "/auth/register", "/").permitAll()
+                        .requestMatchers("/api/auth/login", "/api/auth/register", "/").permitAll()
 
                         // Swagger UI y OpenAPI docs - Acceso público para documentación
                         .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()

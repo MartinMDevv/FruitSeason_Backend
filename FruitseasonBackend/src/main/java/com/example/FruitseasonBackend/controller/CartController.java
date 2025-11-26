@@ -24,17 +24,17 @@ import java.util.stream.Collectors;
  * CartController - Controlador de carrito de compras
  * 
  * Endpoints:
- * - GET /cart - Obtener carrito actual
- * - POST /cart/select-plan - Seleccionar plan de suscripción
- * - POST /cart/add-fruit - Agregar fruta al carrito
- * - DELETE /cart/remove-fruit/{fruit} - Remover fruta del carrito
- * - DELETE /cart/clear - Limpiar carrito
- * - GET /cart/available-fruits - Listar frutas disponibles
+ * - GET /api/cart - Obtener carrito actual
+ * - POST /api/cart/select-plan - Seleccionar plan de suscripción
+ * - POST /api/cart/add-fruit - Agregar fruta al carrito
+ * - DELETE /api/cart/remove-fruit - Remover fruta del carrito
+ * - DELETE /api/cart/clear - Limpiar carrito
+ * - GET /api/cart/available-fruits - Listar frutas disponibles
  */
 @Tag(name = "Carrito", description = "Gestión del carrito de compras y selección de frutas")
 @SecurityRequirement(name = "bearer-jwt")
 @RestController
-@RequestMapping("/cart")
+@RequestMapping("/api/cart")
 public class CartController {
 
         private final CartService cartService;
@@ -50,7 +50,11 @@ public class CartController {
         }
 
         public record AddFruitRequest(
-                        @NotBlank(message = "La fruta es obligatoria") String fruit) {
+                        @NotBlank(message = "La fruta es obligatoria") String fruitType) {
+        }
+
+        public record RemoveFruitRequest(
+                        @NotBlank(message = "La fruta es obligatoria") String fruitType) {
         }
 
         public record ErrorResponse(String error, String message) {
@@ -59,7 +63,7 @@ public class CartController {
         // ============= Endpoints =============
 
         /**
-         * GET /cart
+         * GET /api/cart
          * Obtiene el carrito actual del usuario
          */
         @Operation(summary = "Obtener carrito actual", description = "Retorna el carrito del usuario con plan seleccionado y frutas agregadas")
@@ -91,7 +95,7 @@ public class CartController {
         }
 
         /**
-         * POST /cart/select-plan
+         * POST /api/cart/select-plan
          * Selecciona un plan de suscripción para el carrito
          */
         @Operation(summary = "Seleccionar plan de suscripción", description = "Selecciona un plan (BASIC, FAMILY, PREMIUM). Si cambia el plan, se limpian las frutas del carrito.")
@@ -121,7 +125,7 @@ public class CartController {
         }
 
         /**
-         * POST /cart/add-fruit
+         * POST /api/cart/add-fruit
          * Agrega una fruta al carrito
          */
         @Operation(summary = "Agregar fruta al carrito", description = "Agrega una fruta al carrito. No se pueden agregar frutas duplicadas ni exceder el límite del plan.")
@@ -132,7 +136,7 @@ public class CartController {
                         Principal principal) {
                 try {
                         String username = principal.getName();
-                        FruitType fruit = FruitType.valueOf(req.fruit().toUpperCase());
+                        FruitType fruit = FruitType.valueOf(req.fruitType().toUpperCase());
 
                         Cart cart = cartService.addFruit(username, fruit);
 
@@ -153,18 +157,18 @@ public class CartController {
         }
 
         /**
-         * DELETE /cart/remove-fruit/{fruit}
+         * DELETE /api/cart/remove-fruit
          * Remueve una fruta del carrito
          */
         @Operation(summary = "Remover fruta del carrito", description = "Elimina una fruta específica del carrito")
         @ApiResponse(responseCode = "200", description = "Fruta removida exitosamente")
-        @DeleteMapping("/remove-fruit/{fruit}")
+        @DeleteMapping("/remove-fruit")
         public ResponseEntity<?> removeFruit(
-                        @PathVariable String fruit,
+                        @Valid @RequestBody RemoveFruitRequest req,
                         Principal principal) {
                 try {
                         String username = principal.getName();
-                        FruitType fruitType = FruitType.valueOf(fruit.toUpperCase());
+                        FruitType fruitType = FruitType.valueOf(req.fruitType().toUpperCase());
 
                         Cart cart = cartService.removeFruit(username, fruitType);
 
@@ -183,7 +187,7 @@ public class CartController {
         }
 
         /**
-         * DELETE /cart/clear
+         * DELETE /api/cart/clear
          * Limpia completamente el carrito
          */
         @Operation(summary = "Limpiar carrito", description = "Elimina todas las frutas y el plan seleccionado del carrito")
@@ -204,7 +208,7 @@ public class CartController {
         }
 
         /**
-         * GET /cart/available-fruits
+         * GET /api/cart/available-fruits
          * Lista todas las frutas disponibles (público)
          */
         @Operation(summary = "Listar frutas disponibles", description = "Retorna todas las frutas que se pueden agregar al carrito")

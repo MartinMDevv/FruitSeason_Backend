@@ -26,7 +26,7 @@ import java.util.List;
  * - GET /comments - Listar últimos comentarios para el footer (público)
  */
 @RestController
-@RequestMapping("/comments")
+@RequestMapping("/api/comments")
 public class CommentController {
 
     // Inyección por constructor (mejor práctica)
@@ -46,38 +46,32 @@ public class CommentController {
      * - text: Opinión del usuario sobre la página
      */
     public record CommentRequest(
-        @NotBlank(message = "El email es obligatorio")
-        @Email(message = "Email inválido")
-        @Size(max = 100, message = "El email es demasiado largo")
-        String email,
-        
-        @NotBlank(message = "El comentario no puede estar vacío")
-        @Size(min = 10, max = 500, message = "El comentario debe tener entre 10 y 500 caracteres")
-        String text
-    ) {}
+            @NotBlank(message = "El email es obligatorio") @Email(message = "Email inválido") @Size(max = 100, message = "El email es demasiado largo") String email,
+
+            @NotBlank(message = "El comentario no puede estar vacío") @Size(min = 10, max = 500, message = "El comentario debe tener entre 10 y 500 caracteres") String text) {
+    }
 
     /**
      * DTO de respuesta para comentario
      * NO expone el email del usuario (privacidad)
      */
     public record CommentResponse(
-        Long id,
-        String text,
-        String createdAt
-    ) {
+            Long id,
+            String text,
+            String createdAt) {
         public static CommentResponse from(Comment comment) {
             return new CommentResponse(
-                comment.getId(),
-                comment.getText(),
-                comment.getCreatedAt() != null ? comment.getCreatedAt().toString() : null
-            );
+                    comment.getId(),
+                    comment.getText(),
+                    comment.getCreatedAt() != null ? comment.getCreatedAt().toString() : null);
         }
     }
 
     /**
      * DTO para respuesta de error
      */
-    public record ErrorResponse(String error, String message) {}
+    public record ErrorResponse(String error, String message) {
+    }
 
     // ============= Endpoints =============
 
@@ -88,35 +82,35 @@ public class CommentController {
      * @param req - Email y texto del comentario
      * @return ResponseEntity con el comentario creado o error
      * 
-     * Flujo:
-     * 1. Valida email y texto
-     * 2. Guarda el comentario en la BD
-     * 3. Retorna confirmación (sin exponer el email)
+     *         Flujo:
+     *         1. Valida email y texto
+     *         2. Guarda el comentario en la BD
+     *         3. Retorna confirmación (sin exponer el email)
      * 
-     * Acceso: Público (NO requiere autenticación)
+     *         Acceso: Público (NO requiere autenticación)
      * 
-     * Ejemplo de uso desde el frontend:
-     * POST /comments
-     * {
-     *   "email": "usuario@example.com",
-     *   "text": "Excelente página, muy buenos productos!"
-     * }
+     *         Ejemplo de uso desde el frontend:
+     *         POST /comments
+     *         {
+     *         "email": "usuario@example.com",
+     *         "text": "Excelente página, muy buenos productos!"
+     *         }
      */
     @PostMapping
     public ResponseEntity<?> createComment(@Valid @RequestBody CommentRequest req) {
         try {
             // Crea el comentario (el email NO se muestra públicamente)
             Comment saved = commentService.create(req.email(), req.text());
-            
+
             // Retorna solo el texto, no el email (privacidad)
             return ResponseEntity.status(HttpStatus.CREATED)
                     .body(CommentResponse.from(saved));
-                    
+
         } catch (IllegalArgumentException ex) {
             // Error de validación de negocio
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(new ErrorResponse("VALIDATION_ERROR", ex.getMessage()));
-                    
+
         } catch (Exception ex) {
             // Error inesperado - no exponer detalles internos
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -140,14 +134,14 @@ public class CommentController {
         try {
             // Obtiene todos los comentarios
             List<Comment> comments = commentService.listAll();
-            
+
             // Mapea a DTOs (sin exponer emails)
             List<CommentResponse> response = comments.stream()
                     .map(CommentResponse::from)
                     .toList();
-            
+
             return ResponseEntity.ok(response);
-            
+
         } catch (Exception ex) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
@@ -160,31 +154,33 @@ public class CommentController {
      * @param limit - Cantidad máxima de comentarios a retornar (default: 10)
      * @return Lista de comentarios recientes
      * 
-     * Recomendado para el footer: mostrar solo los últimos 5-10 comentarios
-     * para no saturar la página
+     *         Recomendado para el footer: mostrar solo los últimos 5-10 comentarios
+     *         para no saturar la página
      * 
-     * Ejemplo de uso:
-     * - GET /comments/recent -> Últimos 10 comentarios
-     * - GET /comments/recent?limit=5 -> Últimos 5 comentarios
+     *         Ejemplo de uso:
+     *         - GET /comments/recent -> Últimos 10 comentarios
+     *         - GET /comments/recent?limit=5 -> Últimos 5 comentarios
      */
     @GetMapping("/recent")
     public ResponseEntity<List<CommentResponse>> getRecentComments(
             @RequestParam(defaultValue = "10") int limit) {
         try {
             // Limita la cantidad máxima para prevenir abuso
-            if (limit > 50) limit = 50;
-            if (limit < 1) limit = 10;
-            
+            if (limit > 50)
+                limit = 50;
+            if (limit < 1)
+                limit = 10;
+
             // Obtiene los comentarios más recientes
             List<Comment> comments = commentService.findRecent(limit);
-            
+
             // Mapea a DTOs
             List<CommentResponse> response = comments.stream()
                     .map(CommentResponse::from)
                     .toList();
-            
+
             return ResponseEntity.ok(response);
-            
+
         } catch (Exception ex) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
@@ -197,19 +193,19 @@ public class CommentController {
      * Aunque no hay moderación, considera implementar:
      * 
      * 1. Rate Limiting: Limitar comentarios por IP
-     *    - Máximo 3 comentarios por hora por IP
-     *    - Usa @RateLimiter de Resilience4j
+     * - Máximo 3 comentarios por hora por IP
+     * - Usa @RateLimiter de Resilience4j
      * 
      * 2. Validación de Email Real:
-     *    - Opcional: Enviar email de confirmación
-     *    - Solo mostrar comentarios confirmados
+     * - Opcional: Enviar email de confirmación
+     * - Solo mostrar comentarios confirmados
      * 
      * 3. Filtro de Palabras Prohibidas:
-     *    - Lista básica de palabras ofensivas
-     *    - Rechazar comentarios que las contengan
+     * - Lista básica de palabras ofensivas
+     * - Rechazar comentarios que las contengan
      * 
      * 4. Longitud Mínima:
-     *    - Ya implementado: min 10 caracteres
-     *    - Evita comentarios tipo "aaa" o "123"
+     * - Ya implementado: min 10 caracteres
+     * - Evita comentarios tipo "aaa" o "123"
      */
 }
